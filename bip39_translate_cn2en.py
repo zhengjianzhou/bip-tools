@@ -4209,6 +4209,9 @@ en_output, cn_output = en_output[:cn_length] + [last_word], cn_output[:cn_length
 
 print(f"Your seed phrases are as below:\n Chinese (len:({len(cn_output)})): {''.join(cn_output)}\n English (len:({len(en_output)})): {','.join(en_output)}")
 
+num_output = dict(zip(range(1,25), en_output))
+print(f"Your seed phrases with numbers are as below:\n English : {num_output}")
+
 ### TESTS
 ### jzzheng@rtx4090:~/bip-0039$ ./translate_cn2en.py
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
