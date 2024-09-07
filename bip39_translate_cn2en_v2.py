@@ -74,12 +74,51 @@ class Bip39Check(object):
             checksum = hash >> (8 - checksum_bits)
             final_word_idx = (i << checksum_bits) + checksum
             checkword = self.wordlist[final_word_idx]
-            print (checkword)
             return checkword
 ### HELPER CLASS ----END---- #
 
+def generate_seedphrase(effective_code_length, cn_input, passcode_str):
+    try:
+        cn_char_excluded, cn_char_effective = '', ''
+        for s in cn_input:
+            if s in CN_LIST:
+                cn_char_effective += s
+            else:
+                cn_char_excluded += s
 
-def main():
+        cn_char_excluded = set(cn_char_excluded)
+
+        passcode = [0] * effective_code_length  ### set all into 0 as default, so that the_passcode+1 times phrase_number and take the remainder of division over NO_OF_WORDS should be phrase_number itself -> meaning no passcode
+        if passcode_str:
+            passcode_input = ascii_to_ord_list(passcode_str)
+            passcode = (passcode_input * effective_code_length)[:effective_code_length]
+        
+        en_output, i = [], 0
+        while len(en_output) < effective_code_length:
+            for s in cn_char_effective:
+                cn_ord = CN_C2I_DICT[s]
+                pcode = passcode[i] * (i+1)                         ### logic : passcode to time with ordinals - to avoid repeating words. It won't change the original phrase if the given pcode is 0 (no passcode)
+                en_ord = ( cn_ord + cn_ord * pcode) % NO_OF_WORDS   ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
+                en_encoded = EN_I2C_DICT[en_ord]
+                en_output.append(en_encoded)
+        
+                if len(en_output) >= effective_code_length: break
+                i += 1
+        
+        ### generate the last checksum code
+        m = Bip39Check()
+        m._check_size(en_output[:effective_code_length])
+        m._compute_entropy(en_output[:effective_code_length])
+        last_word = m._scan()
+        
+        en_output = en_output[:effective_code_length] + [last_word]
+        en_indexed_output = dict(zip(range(1, len(en_output)+1), en_output))
+        return cn_char_excluded, cn_char_effective, passcode, en_output, en_indexed_output, last_word
+
+    except:
+        return '', '', [], [], {}, ''
+
+def main_cli():
     cn_length_input = input(f'Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):')
     if cn_length_input.isnumeric():
         cn_length = int(cn_length_input)
@@ -90,114 +129,149 @@ def main():
     
     ### last word of the seed phrase are generated automatically - so the effective length is l - 1, e.g. 24 -> 23
     effective_code_length = cn_length - 1
-    
     cn_input = input(f'Please type in your {effective_code_length} Chinese characters (It will only take first {effective_code_length} if too long. It will repeat from beginning if too short.)\n===>')
-    
-    cn_char_excluded, cn_char_in_use = '', ''
-    for s in cn_input:
-        if s in CN_LIST:
-            cn_char_in_use += s
-        else:
-            cn_char_excluded += s
-    
-    cn_char_excluded = set(cn_char_excluded)
-    print(f"{cn_char_excluded} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!\nPlease take notes!!! Effective input is {cn_char_in_use}")
-    
-    if len(cn_char_in_use) < 6:
+    passcode_str_raw = input(f'Please enter a pass code:\nIt can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!\nPlease remember this code - without this code you will never be able to retrieve the target passphrase!!!\nE.g. 12354, or A1123xx$#@, etc.\n===>')
+    passcode_str = passcode_str_raw.strip()
+
+    cn_char_excluded, cn_char_effective, passcode, en_output, en_indexed_output, last_word = generate_seedphrase(effective_code_length, cn_input, passcode_str)
+
+    print(f"{cn_char_excluded} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!\nPlease take notes!!! Effective input is {cn_char_effective}")
+    if len(cn_char_effective) < 6:
         print("Please use a longer phrase!!! At least 6 characters!!!")
         exit()
     
-    passcode_str_raw = input(f'Please enter a pass code:\nIt can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!\nPlease remember this code - without this code you will never be able to retrieve the target passphrase!!!\nE.g. 12354, or A1123xx$#@, etc.\n===>')
-    passcode_str = passcode_str_raw.strip()
-    
-    passcode = [0] * effective_code_length  ### set all into 0 as default, so that the_passcode+1 times phrase_number and take the remainder of division over NO_OF_WORDS should be phrase_number itself -> meaning no passcode
-    if passcode_str:
-        passcode_input = ascii_to_ord_list(passcode_str)
-        passcode = (passcode_input * effective_code_length)[:effective_code_length]
-    
     print(f'Selected passcode: \nInput: {passcode_str}\nEffective: {passcode}')
-    
-    cn_output, en_output, i = '', [], 0
-    while len(en_output) < effective_code_length:
-        for s in cn_char_in_use:
-            cn_output += s
-            cn_ord = CN_C2I_DICT[s]
-            pcode = passcode[i] * (i+1)                         ### logic : passcode to time with ordinals - to avoid repeating words. It won't change the original phrase if the given pcode is 0 (no passcode)
-            en_ord = ( cn_ord + cn_ord * pcode) % NO_OF_WORDS   ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
-            en_encoded = EN_I2C_DICT[en_ord]
-            en_output.append(en_encoded)
-    
-            if len(en_output) >= effective_code_length: break
-            i += 1
-    
-    ### generate the last checksum code
-    m = Bip39Check()
-    m._check_size(en_output[:effective_code_length])
-    m._compute_entropy(en_output[:effective_code_length])
-    last_word = m._scan()
     print(f'Auto-generated checksum last_word is: {last_word}, {EN2CN_DICT[last_word]}')
+    print(f"Your seed phrases are as below:\n Original Chinese (len:({len(cn_char_effective)})): {''.join(cn_char_effective)}\nEncoded English (len:({len(en_output)})): {','.join(en_output)}\nEncoded English (len:({len(en_output)})): {' '.join(en_output)}")
+    print(f"Your seed phrases with ordinals are as below:\n English : {en_indexed_output}")
+
+def main_ui():
+    import tkinter as tk
+    def generate_output():
+        cn_input_raw = entry1.get()
+        passcode_str_raw = entry2.get()
+        seed_length = seedphrase_length.get()
+
+        cn_input = cn_input_raw.strip()
+        passcode_str = passcode_str_raw.strip()
+        effective_code_length = int(seed_length) - 1
+        cn_char_excluded, cn_char_effective, passcode, en_output, en_indexed_output, last_word = generate_seedphrase(effective_code_length, cn_input, passcode_str)
     
-    en_output = en_output[:effective_code_length] + [last_word]
-    cn_output = cn_output[:effective_code_length] + EN2CN_DICT[last_word]
-    print(f"Your seed phrases are as below:\n Original Chinese (len:({len(cn_output)})): {''.join(cn_output)}\nEncoded English (len:({len(en_output)})): {','.join(en_output)}\nEncoded English (len:({len(en_output)})): {' '.join(en_output)}")
+        output1.config(state="normal")
+        output2.config(state="normal")
+        output3.config(state="normal")
+
+        output1.delete(1.0, tk.END)
+        output2.delete(1.0, tk.END)
+        output3.delete(1.0, tk.END)
     
-    num_output = dict(zip(range(1,25), en_output))
-    print(f"Your seed phrases with numbers are as below:\n English : {num_output}")
+        output1.insert(tk.END, f"{''.join(cn_char_effective)}")
+        output2.insert(tk.END, f"{' '.join(en_output)}")
+        output3.insert(tk.END, f"{en_indexed_output}")
+
+        output1.config(state="disabled")
+        output2.config(state="disabled")
+        output3.config(state="disabled")
+    
+    root = tk.Tk()
+    root.title("Semaj's SeedPhrase Generator")
+    
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_rowconfigure(1, weight=1)
+    root.grid_rowconfigure(2, weight=2)
+    root.grid_rowconfigure(3, weight=2)
+    root.grid_columnconfigure(0, weight=1)
+    
+    label1 = tk.Label(root, text="Please input your Chinese Phrases here", font=("Arial", 12), anchor='w')
+    entry1 = tk.Entry(root, font=("Arial", 14))
+    label2 = tk.Label(root, text="Please input your passcode here, it can be empty or any ascii code except space", font=("Arial", 12), anchor='w')
+    entry2 = tk.Entry(root, font=("Arial", 14))
+    
+    label1.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+    entry1.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+    label2.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
+    entry2.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+    
+    seedphrase_length = tk.StringVar(root)
+    seedphrase_length.set("24")
+    
+    dropdown = tk.OptionMenu(root, seedphrase_length, "12", "24")
+    dropdown.config(font=("Arial", 14))
+    dropdown.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
+    
+    generate_button = tk.Button(root, text="Generate Seed Phrase", font=("Arial", 16), command=generate_output)
+    generate_button.grid(row=5, column=0, sticky="ew", padx=10, pady=10)
+    
+    output1 = tk.Text(root, height=2, wrap="word", font=("Arial", 12))
+    output2 = tk.Text(root, height=3, wrap="word", font=("Arial", 12))
+    output3 = tk.Text(root, height=4, wrap="word", font=("Arial", 12))
+    
+    label3 = tk.Label(root, text="Your input:", font=("Arial", 12), anchor='w')
+    label4 = tk.Label(root, text="Your Seed Phrase - Please keep them secure!!!", font=("Arial", 12), anchor='w')
+
+    label3.grid(row=6, column=0, sticky="ew", padx=10, pady=5)
+    output1.grid(row=7, column=0, sticky="ew", padx=10, pady=5)
+    label4.grid(row=8, column=0, sticky="ew", padx=10, pady=5)
+    output2.grid(row=9, column=0, sticky="ew", padx=10, pady=5)
+    output3.grid(row=10, column=0, sticky="ew", padx=10, pady=5)
+    
+    root.mainloop()
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[-1] == '-c':
+        main_cli()
+    else:
+        main_ui()
 
 ### TESTS
 ### 
 ### ------ without passcode ------
 ### 
-### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py
+### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py -c
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
 ### Using default length: 24!
 ### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
 ### ===>秦朝（前221年—前207年），是中国历史上第一个统一的封建王朝，前身是春秋战国时期的秦国
-### {'—', '0', '（', '）', '1', '7', '，', '2'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
-### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Please enter a pass code:
 ### It can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!
 ### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
 ### E.g. 12354, or A1123xx$#@, etc.
 ### ===>
+### {'（', '）', '7', '1', '—', '，', '2', '0'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Selected passcode:
 ### Input:
 ### Effective: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-### aisle
 ### Auto-generated checksum last_word is: aisle, 过
 ### Your seed phrases are as below:
-###  Original Chinese (len:(24)): 秦朝前年前年是中国历史上第一个统一的封建王朝前过
+###  Original Chinese (len:(34)): 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Encoded English (len:(24)): mention,else,atom,age,atom,age,able,access,acid,cube,cruel,accuse,battle,ability,achieve,bridge,ability,abandon,eagle,belt,define,else,atom,aisle
 ### Encoded English (len:(24)): mention else atom age atom age able access acid cube cruel accuse battle ability achieve bridge ability abandon eagle belt define else atom aisle
-### Your seed phrases with numbers are as below:
+### Your seed phrases with ordinals are as below:
 ###  English : {1: 'mention', 2: 'else', 3: 'atom', 4: 'age', 5: 'atom', 6: 'age', 7: 'able', 8: 'access', 9: 'acid', 10: 'cube', 11: 'cruel', 12: 'accuse', 13: 'battle', 14: 'ability', 15: 'achieve', 16: 'bridge', 17: 'ability', 18: 'abandon', 19: 'eagle', 20: 'belt', 21: 'define', 22: 'else', 23: 'atom', 24: 'aisle'}
 ### 
 ### ------ with passcode ------
 ### 
-### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py
+### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py -c
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
 ### Using default length: 24!
 ### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
 ### ===>秦朝（前221年—前207年），是中国历史上第一个统一的封建王朝，前身是春秋战国时期的秦国
-### {'0', '1', '（', '7', '—', '）', '，', '2'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
-### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Please enter a pass code:
 ### It can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!
 ### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
 ### E.g. 12354, or A1123xx$#@, etc.
 ### ===>123
+### {'，', '2', '0', '—', '）', '1', '（', '7'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Selected passcode:
 ### Input: 123
 ### Effective: [49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50]
-### ability
 ### Auto-generated checksum last_word is: ability, 一
 ### Your seed phrases are as below:
-###  Original Chinese (len:(24)): 秦朝前年前年是中国历史上第一个统一的封建王朝前一
+###  Original Chinese (len:(34)): 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Encoded English (len:(24)): club,license,pizza,scare,blossom,sudden,liberty,chef,obey,organ,dust,cost,empty,quality,order,keep,start,index,position,brother,evil,mad,pave,ability
 ### Encoded English (len:(24)): club license pizza scare blossom sudden liberty chef obey organ dust cost empty quality order keep start index position brother evil mad pave ability
-### Your seed phrases with numbers are as below:
+### Your seed phrases with ordinals are as below:
 ###  English : {1: 'club', 2: 'license', 3: 'pizza', 4: 'scare', 5: 'blossom', 6: 'sudden', 7: 'liberty', 8: 'chef', 9: 'obey', 10: 'organ', 11: 'dust', 12: 'cost', 13: 'empty', 14: 'quality', 15: 'order', 16: 'keep', 17: 'start', 18: 'index', 19: 'position', 20: 'brother', 21: 'evil', 22: 'mad', 23: 'pave', 24: 'ability'}
 ### 
