@@ -24,8 +24,9 @@ if len(CN_LIST) == len(EN_LIST) and len(EN_LIST) == 2048:
 else:
     raise Exception("The number of CN words is different from the number of EN words, they should be exactly 2048!, please check the code!!!")
 
-EN_I2C_DICT = dict([(i, EN_LIST[i]) for i in range(NO_OF_WORDS)])
-CN_C2I_DICT = dict([(CN_LIST[i], i) for i in range(NO_OF_WORDS)])
+### The I2C (index to char) dict is indexed from 1 to 2048 - to avoid 0 in the ordinals/indexes
+EN_I2C_DICT = dict([(i+1, EN_LIST[i]) for i in range(NO_OF_WORDS)])
+CN_C2I_DICT = dict([(CN_LIST[i], i+1) for i in range(NO_OF_WORDS)])
 EN2CN_DICT  = dict(zip(EN_LIST, CN_LIST))
 
 
@@ -147,16 +148,56 @@ if __name__ == "__main__":
     main()
 
 ### TESTS
-### jzzheng@rtx4090:~/bip-0039$ ./translate_cn2en.py
+### 
+### ------ without passcode ------
+### 
+### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
 ### Using default length: 24!
 ### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
 ### ===>秦朝（前221年—前207年），是中国历史上第一个统一的封建王朝，前身是春秋战国时期的秦国
-### {'2', '0', '）', '（', '7', '1', '，', '—'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### {'—', '0', '（', '）', '1', '7', '，', '2'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
 ### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
+### Please enter a pass code:
+### It can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!
+### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
+### E.g. 12354, or A1123xx$#@, etc.
+### ===>
+### Selected passcode:
+### Input:
+### Effective: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ### aisle
 ### Auto-generated checksum last_word is: aisle, 过
 ### Your seed phrases are as below:
-###  Chinese (len:(24)): 秦朝前年前年是中国历史上第一个统一的封建王朝前过
-###  English (len:(24)): mention,else,atom,age,atom,age,able,access,acid,cube,cruel,accuse,battle,ability,achieve,bridge,ability,abandon,eagle,belt,define,else,atom,aisle
-###
+###  Original Chinese (len:(24)): 秦朝前年前年是中国历史上第一个统一的封建王朝前过
+### Encoded English (len:(24)): mention,else,atom,age,atom,age,able,access,acid,cube,cruel,accuse,battle,ability,achieve,bridge,ability,abandon,eagle,belt,define,else,atom,aisle
+### Encoded English (len:(24)): mention else atom age atom age able access acid cube cruel accuse battle ability achieve bridge ability abandon eagle belt define else atom aisle
+### Your seed phrases with numbers are as below:
+###  English : {1: 'mention', 2: 'else', 3: 'atom', 4: 'age', 5: 'atom', 6: 'age', 7: 'able', 8: 'access', 9: 'acid', 10: 'cube', 11: 'cruel', 12: 'accuse', 13: 'battle', 14: 'ability', 15: 'achieve', 16: 'bridge', 17: 'ability', 18: 'abandon', 19: 'eagle', 20: 'belt', 21: 'define', 22: 'else', 23: 'atom', 24: 'aisle'}
+### 
+### ------ with passcode ------
+### 
+### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py
+### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
+### Using default length: 24!
+### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
+### ===>秦朝（前221年—前207年），是中国历史上第一个统一的封建王朝，前身是春秋战国时期的秦国
+### {'0', '1', '（', '7', '—', '）', '，', '2'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
+### Please enter a pass code:
+### It can be in any length (empty for not using this code), can be any type-able ascii characters (except leading or ending spaces), and it is case sensitive!!!
+### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
+### E.g. 12354, or A1123xx$#@, etc.
+### ===>123
+### Selected passcode:
+### Input: 123
+### Effective: [49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50]
+### ability
+### Auto-generated checksum last_word is: ability, 一
+### Your seed phrases are as below:
+###  Original Chinese (len:(24)): 秦朝前年前年是中国历史上第一个统一的封建王朝前一
+### Encoded English (len:(24)): club,license,pizza,scare,blossom,sudden,liberty,chef,obey,organ,dust,cost,empty,quality,order,keep,start,index,position,brother,evil,mad,pave,ability
+### Encoded English (len:(24)): club license pizza scare blossom sudden liberty chef obey organ dust cost empty quality order keep start index position brother evil mad pave ability
+### Your seed phrases with numbers are as below:
+###  English : {1: 'club', 2: 'license', 3: 'pizza', 4: 'scare', 5: 'blossom', 6: 'sudden', 7: 'liberty', 8: 'chef', 9: 'obey', 10: 'organ', 11: 'dust', 12: 'cost', 13: 'empty', 14: 'quality', 15: 'order', 16: 'keep', 17: 'start', 18: 'index', 19: 'position', 20: 'brother', 21: 'evil', 22: 'mad', 23: 'pave', 24: 'ability'}
+### 
