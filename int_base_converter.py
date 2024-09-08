@@ -23,11 +23,11 @@ CN_C2I_DICT = dict([(CN_LIST[i], i+1) for i in range(NO_OF_WORDS)])
 EN2CN_DICT  = dict(zip(EN_LIST, CN_LIST))
 CN2EN_DICT  = dict(zip(CN_LIST, EN_LIST))
 
-# Base95 character set (printable ASCII characters)
 BASE2048_CHARS_CN = [CN_LIST[i] for i in range(2048)]  # BIP39 range from 0 to 2047
 BASE2048_CHARS_EN = [EN_LIST[i] for i in range(2048)]  # BIP39 range from 0 to 2047
 BASE2048 = len(BASE2048_CHARS_EN)
 
+# Base95 character set (printable ASCII characters)
 BASE95_CHARS = ''.join(chr(i) for i in range(32, 127))
 BASE95 = len(BASE95_CHARS)
 
