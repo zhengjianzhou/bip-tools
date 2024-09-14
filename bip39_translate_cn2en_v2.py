@@ -4,10 +4,6 @@ import os
 import sys
 import hashlib
 
-### helper function to change ASCII to ORD
-def ascii_to_ord_list(s: str) -> list:
-    return [ord(char) for char in s]
-
 ### below 2 lists are sourced from : https://github.com/bitcoin/bips/tree/master/bip-0039
 ### as of 8-Apr-2024
 
@@ -17,18 +13,33 @@ ENGLISH_STRING = '''abandon ability able about above absent absorb abstract absu
 ### CONSTANT LISTS AND DICTS
 CN_LIST = CHINESE_SIMPLIFIED_STRING.strip().split(' ')
 EN_LIST = ENGLISH_STRING.strip().split(' ')
+EN2CN_DICT  = dict(zip(EN_LIST, CN_LIST))
 
 NO_OF_WORDS  = -1
-if len(CN_LIST) == len(EN_LIST) and len(EN_LIST) == 2048:
+if len(CN_LIST) == len(EN_LIST) and len(EN_LIST) == 2048 and len(EN2CN_DICT) == 2048:
     NO_OF_WORDS  = len(CN_LIST)
 else:
     raise Exception("The number of CN words is different from the number of EN words, they should be exactly 2048!, please check the code!!!")
 
-### The I2C (index to char) dict is indexed from 1 to 2048 - to avoid 0 in the ordinals/indexes
-EN_I2C_DICT = dict([(i+1, EN_LIST[i]) for i in range(NO_OF_WORDS)])
-CN_C2I_DICT = dict([(CN_LIST[i], i+1) for i in range(NO_OF_WORDS)])
-EN2CN_DICT  = dict(zip(EN_LIST, CN_LIST))
+### helper function to change ASCII to ORD
+def ascii_to_ord_list(s: str) -> list:
+    return [ord(char) for char in s]
 
+### helper function to convert ascii passcode into a base2048 number using sha256
+def passcode_sha256_to_base_2048(passcode):
+    hex_str = hashlib.sha256(passcode.encode('utf-8')).hexdigest()
+
+    decimal_value = int(hex_str, 16)
+    base_2048_digits = []
+    while decimal_value > 0:
+        remainder = decimal_value % 2048
+        base_2048_digits.append(remainder)
+        decimal_value //= 2048
+
+    base_2048_digits.reverse()
+    while len(base_2048_digits) < 24:
+        base_2048_digits.insert(0, 0)  # Pad with leading zeros at the start
+    return base_2048_digits
 
 ### HELPER CLASS ---START--- #
 class Bip39Check(object):
@@ -90,16 +101,15 @@ def generate_seedphrase(effective_code_length, cn_input, passcode_str):
 
         passcode = [0] * effective_code_length  ### set all into 0 as default, so that the_passcode+1 times phrase_number and take the remainder of division over NO_OF_WORDS should be phrase_number itself -> meaning no passcode
         if passcode_str:
-            passcode_input = ascii_to_ord_list(passcode_str)
-            passcode = (passcode_input * effective_code_length)[:effective_code_length]
+            passcode = passcode_sha256_to_base_2048(passcode_str)
+            passcode.reverse()                                                           ### logic : reverse the base2048 output, take the pcode from smallest digit first
         
         en_output, i = [], 0
         while len(en_output) < effective_code_length:
             for s in cn_char_effective:
-                cn_ord = CN_C2I_DICT[s]
-                pcode = passcode[i] * (i+1)                         ### logic : passcode to time with ordinals - to avoid repeating words. It won't change the original phrase if the given pcode is 0 (no passcode)
-                en_ord = ( cn_ord + cn_ord * pcode) % NO_OF_WORDS   ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
-                en_encoded = EN_I2C_DICT[en_ord]
+                cn_idx = CN_LIST.index(s)
+                en_idx = ( cn_idx + passcode[i] ) % NO_OF_WORDS                            ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
+                en_encoded = EN_LIST[en_idx]
                 en_output.append(en_encoded)
         
                 if len(en_output) >= effective_code_length: break
@@ -115,7 +125,8 @@ def generate_seedphrase(effective_code_length, cn_input, passcode_str):
         en_indexed_output = dict(zip(range(1, len(en_output)+1), en_output))
         return cn_char_excluded, cn_char_effective, passcode, en_output, en_indexed_output, last_word
 
-    except:
+    except Exception as e:
+        print(f"Error in generate_seedphrase: {e}")
         return '', '', [], [], {}, ''
 
 def main_cli():
@@ -126,7 +137,7 @@ def main_cli():
     else:
         cn_length = 24
         print(f'Using default length: {cn_length}!')
-    
+
     ### last word of the seed phrase are generated automatically - so the effective length is l - 1, e.g. 24 -> 23
     effective_code_length = cn_length - 1
     cn_input = input(f'Please type in your {effective_code_length} Chinese characters (It will only take first {effective_code_length} if too long. It will repeat from beginning if too short.)\n===>')
@@ -197,10 +208,10 @@ def main_ui():
     
     dropdown = tk.OptionMenu(root, seedphrase_length, "12", "24")
     dropdown.config(font=("Arial", 14))
-    dropdown.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
-    
+    dropdown.grid(row=4, column=0, sticky="w", padx=10, pady=5)
+
     generate_button = tk.Button(root, text="Generate Seed Phrase", font=("Arial", 16), command=generate_output)
-    generate_button.grid(row=5, column=0, sticky="ew", padx=10, pady=10)
+    generate_button.grid(row=6, column=0, sticky="ew", padx=10, pady=10)
     
     output1 = tk.Text(root, height=2, wrap="word", font=("Arial", 12))
     output2 = tk.Text(root, height=3, wrap="word", font=("Arial", 12))
@@ -209,16 +220,16 @@ def main_ui():
     label3 = tk.Label(root, text="Your input:", font=("Arial", 12), anchor='w')
     label4 = tk.Label(root, text="Your Seed Phrase - Please keep them secure!!!", font=("Arial", 12), anchor='w')
 
-    label3.grid(row=6, column=0, sticky="ew", padx=10, pady=5)
-    output1.grid(row=7, column=0, sticky="ew", padx=10, pady=5)
-    label4.grid(row=8, column=0, sticky="ew", padx=10, pady=5)
-    output2.grid(row=9, column=0, sticky="ew", padx=10, pady=5)
-    output3.grid(row=10, column=0, sticky="ew", padx=10, pady=5)
+    label3.grid(row=7, column=0, sticky="ew", padx=10, pady=5)
+    output1.grid(row=8, column=0, sticky="ew", padx=10, pady=5)
+    label4.grid(row=9, column=0, sticky="ew", padx=10, pady=5)
+    output2.grid(row=10, column=0, sticky="ew", padx=10, pady=5)
+    output3.grid(row=11, column=0, sticky="ew", padx=10, pady=5)
     
     root.mainloop()
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[-1] == '-c':
+    if len(sys.argv) > 1 and '-c' in sys.argv[1:]:
         main_cli()
     else:
         main_ui()
@@ -227,7 +238,7 @@ if __name__ == "__main__":
 ### 
 ### ------ without passcode ------
 ### 
-### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py -c
+### jzzheng@rtx4090$ bip39_translate_cn2en_v2.py -c
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
 ### Using default length: 24!
 ### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
@@ -237,7 +248,7 @@ if __name__ == "__main__":
 ### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
 ### E.g. 12354, or A1123xx$#@, etc.
 ### ===>
-### {'（', '）', '7', '1', '—', '，', '2', '0'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### {'，', '1', '2', '（', '7', '0', '）', '—'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
 ### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Selected passcode:
 ### Input:
@@ -252,7 +263,7 @@ if __name__ == "__main__":
 ### 
 ### ------ with passcode ------
 ### 
-### jzzheng@rtx4090:~$ bip39_translate_cn2en_v2.py -c
+### jzzheng@rtx4090$ bip39_translate_cn2en_v2.py -c
 ### Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):
 ### Using default length: 24!
 ### Please type in your 23 Chinese characters (It will only take first 23 if too long. It will repeat from beginning if too short.)
@@ -262,16 +273,15 @@ if __name__ == "__main__":
 ### Please remember this code - without this code you will never be able to retrieve the target passphrase!!!
 ### E.g. 12354, or A1123xx$#@, etc.
 ### ===>123
-### {'，', '2', '0', '—', '）', '1', '（', '7'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
+### {'1', '）', '（', '0', '，', '—', '7', '2'} is not in the list of the 2048 Chinese characters. They are REMOVED from the phrase generation!!!
 ### Please take notes!!! Effective input is 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
 ### Selected passcode:
 ### Input: 123
-### Effective: [49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50, 51, 49, 50]
-### Auto-generated checksum last_word is: ability, 一
+### Effective: [739, 1103, 2014, 891, 232, 1331, 31, 253, 2047, 999, 296, 1104, 1275, 1976, 507, 579, 382, 936, 190, 33, 1426, 840, 409, 5]
+### Auto-generated checksum last_word is: around, 从
 ### Your seed phrases are as below:
 ###  Original Chinese (len:(34)): 秦朝前年前年是中国历史上第一个统一的封建王朝前身是春秋战国时期的秦国
-### Encoded English (len:(24)): club,license,pizza,scare,blossom,sudden,liberty,chef,obey,organ,dust,cost,empty,quality,order,keep,start,index,position,brother,evil,mad,pave,ability
-### Encoded English (len:(24)): club license pizza scare blossom sudden liberty chef obey organ dust cost empty quality order keep start index position brother evil mad pave ability
+### Encoded English (len:(24)): trash,spirit,anxiety,injury,clip,private,aerobic,can,achieve,rather,flower,merry,razor,warm,donkey,goddess,copper,insect,fresh,boil,type,raise,door,around
+### Encoded English (len:(24)): trash spirit anxiety injury clip private aerobic can achieve rather flower merry razor warm donkey goddess copper insect fresh boil type raise door around
 ### Your seed phrases with ordinals are as below:
-###  English : {1: 'club', 2: 'license', 3: 'pizza', 4: 'scare', 5: 'blossom', 6: 'sudden', 7: 'liberty', 8: 'chef', 9: 'obey', 10: 'organ', 11: 'dust', 12: 'cost', 13: 'empty', 14: 'quality', 15: 'order', 16: 'keep', 17: 'start', 18: 'index', 19: 'position', 20: 'brother', 21: 'evil', 22: 'mad', 23: 'pave', 24: 'ability'}
-### 
+###  English : {1: 'trash', 2: 'spirit', 3: 'anxiety', 4: 'injury', 5: 'clip', 6: 'private', 7: 'aerobic', 8: 'can', 9: 'achieve', 10: 'rather', 11: 'flower', 12: 'merry', 13: 'razor', 14: 'warm', 15: 'donkey', 16: 'goddess', 17: 'copper', 18: 'insect', 19: 'fresh', 20: 'boil', 21: 'type', 22: 'raise', 23: 'door', 24: 'around'}
