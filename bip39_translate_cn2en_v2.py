@@ -11,6 +11,7 @@ import hashlib
 ### 4. add the digits onto chinese seedphase index, one-to-one
 ### 5. convert the indexes into english seedphrase
 
+### References:
 ### below 2 lists are sourced from : https://github.com/bitcoin/bips/tree/master/bip-0039
 ### as of 8-Apr-2024
 
@@ -29,7 +30,7 @@ else:
     raise Exception("The number of CN words is different from the number of EN words, they should be exactly 2048!, please check the code!!!")
 
 ### helper function to convert ascii passcode into a base2048 number using sha256
-def passcode_sha256_to_base_2048(passcode):
+def passcode_sha256_to_base_2048(passcode, reverse_order):
     hex_str = hashlib.sha256(passcode.encode('utf-8')).hexdigest()
 
     decimal_value = int(hex_str, 16)
@@ -41,10 +42,13 @@ def passcode_sha256_to_base_2048(passcode):
 
     base_2048_digits.reverse()
     while len(base_2048_digits) < 24:
-        base_2048_digits.insert(0, 0)  # Pad with leading zeros at the start
+        base_2048_digits.insert(0, 0)   ### Pad with leading zeros at the start
+
+    if reverse_order:
+        base_2048_digits.reverse()
     return base_2048_digits
 
-### HELPER CLASS ---START--- #
+### HELPER CLASS
 class Bip39Check(object):
     def __init__(self):
         self.radix = 2048
@@ -89,8 +93,8 @@ class Bip39Check(object):
             final_word_idx = (i << checksum_bits) + checksum
             checkword = self.wordlist[final_word_idx]
             return checkword
-### HELPER CLASS ----END---- #
 
+### seedphrase generator
 def generate_seedphrase(effective_code_length, cn_input, passcode_str):
     try:
         cn_char_excluded, cn_char_effective = '', ''
@@ -102,16 +106,15 @@ def generate_seedphrase(effective_code_length, cn_input, passcode_str):
 
         cn_char_excluded = set(cn_char_excluded)
 
-        passcode = [0] * effective_code_length  ### set all into 0 as default, so that the_passcode+1 times phrase_number and take the remainder of division over NO_OF_WORDS should be phrase_number itself -> meaning no passcode
+        passcode = [0] * effective_code_length   ### set all into 0 as default, so that the_passcode+1 times phrase_number and take the remainder of division over NO_OF_WORDS should be phrase_number itself -> meaning no passcode
         if passcode_str:
-            passcode = passcode_sha256_to_base_2048(passcode_str)
-            passcode.reverse()                                                           ### logic : reverse the base2048 output, take the pcode from smallest digit first
+            passcode = passcode_sha256_to_base_2048(passcode_str, True)   ### logic : reverse the base2048 output, take the pcode from smallest digit first
         
         en_output, i = [], 0
         while len(en_output) < effective_code_length:
             for s in cn_char_effective:
                 cn_idx = CN_LIST.index(s)
-                en_idx = ( cn_idx + passcode[i] ) % NO_OF_WORDS                            ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
+                en_idx = ( cn_idx + passcode[i] ) % NO_OF_WORDS   ### logic : c = (m + m*p) mod ( NO_OF_WORDS ) ---> c: coded number, m: message number, p: passcode
                 en_encoded = EN_LIST[en_idx]
                 en_output.append(en_encoded)
         
@@ -132,6 +135,7 @@ def generate_seedphrase(effective_code_length, cn_input, passcode_str):
         print(f"Error in generate_seedphrase: {e}")
         return '', '', [], [], {}, ''
 
+### command line main function
 def main_cli():
     cn_length_input = input(f'Please choose your length of target seed phrases (e.g. 12, 24, etc. default 24):')
     if cn_length_input.isnumeric():
@@ -159,6 +163,7 @@ def main_cli():
     print(f"Your seed phrases are as below:\n Original Chinese (len:({len(cn_char_effective)})): {''.join(cn_char_effective)}\nEncoded English (len:({len(en_output)})): {','.join(en_output)}\nEncoded English (len:({len(en_output)})): {' '.join(en_output)}")
     print(f"Your seed phrases with ordinals are as below:\n English : {en_indexed_output}")
 
+### command line main function
 def main_ui():
     import tkinter as tk
     def generate_output():
@@ -288,3 +293,4 @@ if __name__ == "__main__":
 ### Encoded English (len:(24)): trash spirit anxiety injury clip private aerobic can achieve rather flower merry razor warm donkey goddess copper insect fresh boil type raise door around
 ### Your seed phrases with ordinals are as below:
 ###  English : {1: 'trash', 2: 'spirit', 3: 'anxiety', 4: 'injury', 5: 'clip', 6: 'private', 7: 'aerobic', 8: 'can', 9: 'achieve', 10: 'rather', 11: 'flower', 12: 'merry', 13: 'razor', 14: 'warm', 15: 'donkey', 16: 'goddess', 17: 'copper', 18: 'insect', 19: 'fresh', 20: 'boil', 21: 'type', 22: 'raise', 23: 'door', 24: 'around'}
+###
