@@ -4,6 +4,13 @@ import os
 import sys
 import hashlib
 
+### Methodology:
+### 1. calculate SHA256 of the given passcode ( in utf-8 ) - if no passcode provided, the number will be set to 0
+### 2. convert it into a 24 digit base2048 number
+### 3. reverse the digit of the number - smallest goes first and put largest at the end, fill the endings with 0s if number is too small
+### 4. add the digits onto chinese seedphase index, one-to-one
+### 5. convert the indexes into english seedphrase
+
 ### below 2 lists are sourced from : https://github.com/bitcoin/bips/tree/master/bip-0039
 ### as of 8-Apr-2024
 
@@ -20,10 +27,6 @@ if len(CN_LIST) == len(EN_LIST) and len(EN_LIST) == 2048 and len(EN2CN_DICT) == 
     NO_OF_WORDS  = len(CN_LIST)
 else:
     raise Exception("The number of CN words is different from the number of EN words, they should be exactly 2048!, please check the code!!!")
-
-### helper function to change ASCII to ORD
-def ascii_to_ord_list(s: str) -> list:
-    return [ord(char) for char in s]
 
 ### helper function to convert ascii passcode into a base2048 number using sha256
 def passcode_sha256_to_base_2048(passcode):
