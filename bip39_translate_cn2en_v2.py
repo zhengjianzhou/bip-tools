@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 
+### By James Zheng 19-Sep-2024
+###
 ### Methodology:
 ### 1. calculate SHA256 of the given passcode ( in utf-8 ) - if no passcode provided, the number will be set to 0
 ### 2. convert it into a 24 digit base2048 number
