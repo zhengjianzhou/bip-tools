@@ -226,7 +226,7 @@ def main_cli():
     print("#"*24)
     print(f"Your passphrase [len:{len(en_output)}]:\n{' '.join(en_output)}\n{en_indexed_output}")
 
-### command line main function
+### tkinter ui main function
 def main_ui():
     import tkinter as tk
     def generate_output():
