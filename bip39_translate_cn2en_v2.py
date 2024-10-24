@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# -*- coding: utf-8 -*-
 
 ### By James Zheng 19-Sep-2024
 ###
