@@ -369,3 +369,17 @@ if __name__ == "__main__":
         main_cli()
     else:
         main_ui()
+        main_ui()
+
+###
+### Python CLI TEST:
+### >>> from bip39_translate_cn2en_v3 import *
+### >>> from hashlib import *
+### >>> w = '秦朝前年前年是中国历史上第一个统一的封建王朝前'
+### >>> n = from2048([CN_LIST.index(i) for i in w])
+### >>> m = int(sha256(b'123').hexdigest(),16)
+### >>> [EN_LIST[i] for i in to2048(m+n)[-23:]]
+### ['sail', 'raise', 'scene', 'angry', 'champion', 'keep', 'copy', 'endless', 'door', 'cluster', 'stadium', 'merry', 'debate', 'large', 'accuse', 'derive', 'advice', 'please', 'ginger', 'love', 'crystal', 'spirit', 'height']
+### >>> [EN_LIST[k] for k in [(i+j)%2048 for i,j in zip(to2048(n),to2048(m)[-23:][::-1])]]
+### ['trash', 'spirit', 'anxiety', 'injury', 'clip', 'private', 'aerobic', 'can', 'achieve', 'rather', 'flower', 'merry', 'razor', 'warm', 'donkey', 'goddess', 'copper', 'insect', 'fresh', 'boil', 'type', 'raise', 'door']
+###
